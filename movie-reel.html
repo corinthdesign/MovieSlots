@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Now Spinning</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#150F0C;
+    --ink-2:#1F1712;
+    --marquee:#E7B33E;
+    --marquee-dim:#9C7A2B;
+    --velvet:#832532;
+    --velvet-dim:#5C1C26;
+    --cream:#F2E7CE;
+    --cream-dim:#CBBB98;
+    --teal:#356063;
+    --teal-dim:#24484A;
+    --frame-radius:6px;
+    --shadow: 0 20px 50px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(circle at 50% 0%, #241a14 0%, var(--ink) 55%),
+      var(--ink);
+    color:var(--cream);
+    font-family:'Libre Franklin', sans-serif;
+    padding:32px 16px 64px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+
+  /* ---------- MARQUEE HEADER ---------- */
+  .marquee{
+    position:relative;
+    width:100%;
+    max-width:760px;
+    text-align:center;
+    padding:22px 20px 26px;
+    border:3px solid var(--marquee-dim);
+    border-radius:10px;
+    background:linear-gradient(180deg, #241a13, #180f0b);
+    box-shadow: inset 0 0 0 6px #150f0c, var(--shadow);
+    margin-bottom:24px;
+  }
+  .marquee .bulbs{
+    position:absolute;
+    inset:8px;
+    border-radius:6px;
+    pointer-events:none;
+  }
+  .bulbs span{
+    position:absolute;
+    width:7px; height:7px;
+    border-radius:50%;
+    background:var(--marquee);
+    box-shadow:0 0 6px 2px rgba(231,179,62,0.65);
+    animation:blink 1.6s infinite steps(1);
+  }
+  @keyframes blink{
+    0%, 49%{ opacity:1; }
+    50%, 100%{ opacity:0.25; }
+  }
+  .marquee h1{
+    font-family:'Bebas Neue', sans-serif;
+    font-size:clamp(2.4rem, 6vw, 3.6rem);
+    letter-spacing:0.04em;
+    margin:0;
+    color:var(--marquee);
+    text-shadow:0 0 18px rgba(231,179,62,0.35);
+  }
+  .marquee p{
+    margin:6px 0 0;
+    color:var(--cream-dim);
+    font-size:0.95rem;
+    letter-spacing:0.02em;
+  }
+
+  /* ---------- API KEY GATE ---------- */
+  .key-panel{
+    width:100%;
+    max-width:760px;
+    background:var(--ink-2);
+    border:1px solid #33261c;
+    border-radius:12px;
+    padding:16px 20px;
+    margin-bottom:20px;
+    box-shadow:var(--shadow);
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:12px;
+  }
+  .key-panel.hidden{ display:none; }
+  .key-panel .ticket-stub{
+    font-family:'Bebas Neue', sans-serif;
+    letter-spacing:0.03em;
+    color:var(--marquee);
+    font-size:1.05rem;
+    flex:1 1 220px;
+  }
+  .key-panel p{
+    margin:2px 0 0;
+    font-size:0.78rem;
+    color:var(--cream-dim);
+    font-family:'Libre Franklin', sans-serif;
+    letter-spacing:normal;
+  }
+  .key-panel a{ color:var(--marquee); }
+  .key-row{
+    display:flex;
+    gap:8px;
+    flex:2 1 320px;
+  }
+  #apiKeyInput{
+    flex:1;
+    background:var(--ink);
+    color:var(--cream);
+    border:1px solid #3a2c20;
+    border-radius:6px;
+    padding:10px 12px;
+    font-size:0.9rem;
+    font-family:'Libre Franklin', sans-serif;
+  }
+  #apiKeyInput:focus{ outline:2px solid var(--marquee); outline-offset:1px; }
+  .key-save-btn{
+    font-family:'Bebas Neue', sans-serif;
+    letter-spacing:0.03em;
+    font-size:0.95rem;
+    background:var(--velvet);
+    color:var(--cream);
+    border:none;
+    border-radius:6px;
+    padding:0 18px;
+    cursor:pointer;
+  }
+  .key-save-btn:hover{ background:var(--velvet-dim); }
+  .key-status{
+    font-size:0.78rem;
+    color:var(--cream-dim);
+    flex:1 1 100%;
+  }
+  .key-status.ok{ color:#8fbf8a; }
+  .key-status.err{ color:#d98080; }
+
+  /* ---------- CONTROLS ---------- */
+  .controls{
+    width:100%;
+    max-width:760px;
+    background:var(--ink-2);
+    border:1px solid #33261c;
+    border-radius:12px;
+    padding:22px;
+    margin-bottom:32px;
+    box-shadow:var(--shadow);
+  }
+  .controls-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:18px;
+    margin-bottom:18px;
+  }
+  .field{
+    flex:1 1 160px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .field label{
+    font-size:0.72rem;
+    color:var(--cream-dim);
+    letter-spacing:0.04em;
+  }
+  select{
+    background:var(--ink);
+    color:var(--cream);
+    border:1px solid #3a2c20;
+    border-radius:6px;
+    padding:9px 10px;
+    font-size:0.92rem;
+    font-family:'Libre Franklin', sans-serif;
+  }
+  select:focus{ outline:2px solid var(--marquee); outline-offset:1px; }
+
+  input[type="range"]{
+    -webkit-appearance:none;
+    width:100%;
+    height:4px;
+    background:#3a2c20;
+    border-radius:2px;
+    margin-top:8px;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:16px; height:16px;
+    border-radius:50%;
+    background:var(--marquee);
+    cursor:pointer;
+    box-shadow:0 0 0 3px rgba(231,179,62,0.2);
+  }
+  input[type="range"]::-moz-range-thumb{
+    width:16px; height:16px;
+    border-radius:50%;
+    background:var(--marquee);
+    border:none;
+    cursor:pointer;
+  }
+  .rating-label{ display:flex; justify-content:space-between; align-items:baseline; }
+  .rating-value{ color:var(--marquee); font-weight:700; font-size:0.95rem; }
+
+  .divider{
+    height:1px;
+    background:#33261c;
+    margin:4px 0 18px;
+  }
+
+  .bottom-row{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+  }
+
+  .reel-count{
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .reel-count span{
+    font-size:0.72rem;
+    color:var(--cream-dim);
+    letter-spacing:0.04em;
+    margin-right:4px;
+  }
+  .count-btn{
+    width:38px; height:38px;
+    border-radius:6px;
+    border:1px solid #3a2c20;
+    background:var(--ink);
+    color:var(--cream-dim);
+    font-family:'Bebas Neue', sans-serif;
+    font-size:1.15rem;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .count-btn:hover{ border-color:var(--marquee-dim); color:var(--cream); }
+  .count-btn.active{
+    background:var(--velvet);
+    border-color:var(--velvet);
+    color:var(--cream);
+  }
+
+  /* ---------- ACTION BUTTON (clapperboard) ---------- */
+  .action-btn{
+    position:relative;
+    font-family:'Bebas Neue', sans-serif;
+    font-size:1.25rem;
+    letter-spacing:0.06em;
+    color:var(--ink);
+    background:var(--marquee);
+    border:none;
+    border-radius:6px;
+    padding:13px 30px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    box-shadow:0 6px 0 var(--marquee-dim), 0 10px 20px rgba(0,0,0,0.4);
+    transition:transform .08s ease, box-shadow .08s ease;
+  }
+  .action-btn:active{
+    transform:translateY(4px);
+    box-shadow:0 2px 0 var(--marquee-dim), 0 4px 10px rgba(0,0,0,0.4);
+  }
+  .action-btn:disabled{
+    opacity:0.55;
+    cursor:not-allowed;
+    transform:none;
+    box-shadow:0 6px 0 var(--marquee-dim), 0 10px 20px rgba(0,0,0,0.4);
+  }
+  .clap-icon{ width:20px; height:20px; flex-shrink:0; }
+
+  /* ---------- REELS ---------- */
+  .reels-wrap{
+    width:100%;
+    max-width:760px;
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:22px;
+    margin-bottom:20px;
+  }
+  .reel-frame{
+    position:relative;
+    width:190px;
+    background:linear-gradient(180deg, #2a1e16, #180f0b);
+    border:2px solid #4a3524;
+    border-radius:var(--frame-radius);
+    padding:10px 0;
+    box-shadow:var(--shadow);
+  }
+  .sprockets{
+    display:flex;
+    justify-content:space-around;
+    padding:0 8px;
+  }
+  .sprockets span{
+    width:8px; height:8px;
+    border-radius:2px;
+    background:var(--ink);
+    border:1px solid #4a3524;
+  }
+  .reel-window{
+    height:250px;
+    overflow:hidden;
+    margin:10px 6px;
+    border-radius:4px;
+    background:#0e0906;
+    position:relative;
+  }
+  .reel-window::before, .reel-window::after{
+    content:"";
+    position:absolute;
+    left:0; right:0;
+    height:38px;
+    z-index:2;
+    pointer-events:none;
+  }
+  .reel-window::before{ top:0; background:linear-gradient(180deg, rgba(14,9,6,0.95), transparent); }
+  .reel-window::after{ bottom:0; background:linear-gradient(0deg, rgba(14,9,6,0.95), transparent); }
+
+  .reel-strip{
+    display:flex;
+    flex-direction:column;
+    will-change:transform;
+  }
+  .reel-card{
+    height:250px;
+    flex-shrink:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:10px;
+    gap:8px;
+  }
+  .reel-card img{
+    width:96px;
+    height:140px;
+    object-fit:cover;
+    border-radius:3px;
+    box-shadow:0 4px 10px rgba(0,0,0,0.5);
+    background:#2a1e16;
+  }
+  .reel-card .rc-title{
+    font-size:0.76rem;
+    line-height:1.2;
+    color:var(--cream-dim);
+    max-height:2.4em;
+    overflow:hidden;
+  }
+  .reel-frame.spinning .reel-strip{
+    filter:blur(0.6px);
+  }
+
+  .reel-placeholder{
+    height:250px;
+    margin:10px 6px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--cream-dim);
+    font-size:0.8rem;
+    text-align:center;
+    padding:0 14px;
+  }
+
+  /* ---------- RESULT TICKETS ---------- */
+  .results{
+    width:100%;
+    max-width:760px;
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:20px;
+  }
+  .ticket{
+    width:220px;
+    background:var(--cream);
+    color:var(--ink);
+    border-radius:8px;
+    overflow:hidden;
+    box-shadow:var(--shadow);
+    opacity:0;
+    transform:translateY(14px);
+    animation:ticket-in .5s ease forwards;
+  }
+  .ticket .poster{
+    width:100%;
+    height:200px;
+    object-fit:cover;
+    background:var(--velvet-dim);
+    display:block;
+  }
+  .ticket-body{
+    padding:14px 14px 16px;
+  }
+  .ticket-title{
+    font-family:'Bebas Neue', sans-serif;
+    font-size:1.25rem;
+    letter-spacing:0.02em;
+    line-height:1.05;
+    margin:0 0 4px;
+    color:var(--velvet);
+  }
+  .ticket-year{
+    font-size:0.78rem;
+    color:#6b5c44;
+    margin-bottom:10px;
+  }
+  .genre-chips{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:10px;
+  }
+  .genre-chip{
+    font-size:0.68rem;
+    background:var(--teal);
+    color:var(--cream);
+    padding:3px 8px;
+    border-radius:10px;
+    letter-spacing:0.02em;
+  }
+  .rating-row{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-weight:700;
+    font-size:0.9rem;
+    color:var(--ink);
+  }
+  .rating-row svg{ width:15px; height:15px; fill:var(--marquee-dim); }
+
+  @keyframes ticket-in{
+    to{ opacity:1; transform:translateY(0); }
+  }
+
+  .status{
+    min-height:22px;
+    margin:4px 0 18px;
+    font-size:0.85rem;
+    color:var(--cream-dim);
+    text-align:center;
+  }
+  .status.error{ color:#d98080; }
+
+  @media (max-width:480px){
+    .reel-frame{ width:44%; min-width:150px; }
+    .ticket{ width:100%; max-width:280px; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="marquee">
+    <div class="bulbs" id="bulbs"></div>
+    <h1>NOW SPINNING</h1>
+    <p>Pull the reels. Let the picture pick itself.</p>
+  </div>
+
+  <div class="key-panel" id="keyPanel">
+    <div class="ticket-stub">
+      Backstage pass required
+      <p>This app pulls live data from <a href="https://www.themoviedb.org/" target="_blank" rel="noopener">TMDB</a>, a free public movie database. Grab a free API key at
+        <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a> (takes about 2 minutes, no cost) and paste it below. It's only kept in this browser tab.</p>
+    </div>
+    <div class="key-row">
+      <input type="password" id="apiKeyInput" placeholder="Paste your TMDB API key here" autocomplete="off">
+      <button class="key-save-btn" id="saveKeyBtn">Use key</button>
+    </div>
+    <div class="key-status" id="keyStatus"></div>
+  </div>
+
+  <div class="controls">
+    <div class="controls-row">
+      <div class="field">
+        <label for="genreSelect">GENRE</label>
+        <select id="genreSelect">
+          <option value="">Any genre</option>
+          <option value="28">Action</option>
+          <option value="12">Adventure</option>
+          <option value="16">Animation</option>
+          <option value="35">Comedy</option>
+          <option value="80">Crime</option>
+          <option value="99">Documentary</option>
+          <option value="18">Drama</option>
+          <option value="10751">Family</option>
+          <option value="14">Fantasy</option>
+          <option value="36">History</option>
+          <option value="27">Horror</option>
+          <option value="10402">Music</option>
+          <option value="9648">Mystery</option>
+          <option value="10749">Romance</option>
+          <option value="878">Science Fiction</option>
+          <option value="53">Thriller</option>
+          <option value="10752">War</option>
+          <option value="37">Western</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="decadeSelect">ERA</label>
+        <select id="decadeSelect">
+          <option value="">Any era</option>
+          <option value="2020">2020s</option>
+          <option value="2010">2010s</option>
+          <option value="2000">2000s</option>
+          <option value="1990">1990s</option>
+          <option value="1980">1980s</option>
+          <option value="0">Before 1980</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <div class="rating-label">
+          <label for="ratingRange">MIN RATING</label>
+          <span class="rating-value" id="ratingValue">Any</span>
+        </div>
+        <input type="range" id="ratingRange" min="0" max="9" step="0.5" value="0">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="bottom-row">
+      <div class="reel-count">
+        <span>REELS</span>
+        <button class="count-btn active" data-count="1">1</button>
+        <button class="count-btn" data-count="2">2</button>
+        <button class="count-btn" data-count="3">3</button>
+      </div>
+
+      <button class="action-btn" id="spinBtn">
+        <svg class="clap-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 9.5L20 6l.7 3.4L4 13z" fill="#150F0C"/>
+          <rect x="3" y="10" width="18" height="10" rx="1" fill="#150F0C"/>
+          <path d="M5.5 7.2l2.8-2.6 2 1-2.8 2.6zM10.5 6.2l2.8-2.6 2 1-2.8 2.6zM15.5 5.2l2.8-2.6 2 1-2.8 2.6z" fill="#E7B33E"/>
+        </svg>
+        ACTION!
+      </button>
+    </div>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div class="reels-wrap" id="reelsWrap"></div>
+  <div class="results" id="results"></div>
+
+<script>
+  const TMDB_BASE = "https://api.themoviedb.org/3";
+  const IMG_BASE = "https://image.tmdb.org/t/p/w342";
+
+  const GENRE_NAMES = {
+    28:"Action", 12:"Adventure", 16:"Animation", 35:"Comedy", 80:"Crime",
+    99:"Documentary", 18:"Drama", 10751:"Family", 14:"Fantasy", 36:"History",
+    27:"Horror", 10402:"Music", 9648:"Mystery", 10749:"Romance",
+    878:"Science Fiction", 10770:"TV Movie", 53:"Thriller", 10752:"War", 37:"Western"
+  };
+
+  let apiKey = '';
+
+  const apiKeyInput = document.getElementById('apiKeyInput');
+  const saveKeyBtn = document.getElementById('saveKeyBtn');
+  const keyStatus = document.getElementById('keyStatus');
+  const keyPanel = document.getElementById('keyPanel');
+
+  const genreSelect = document.getElementById('genreSelect');
+  const decadeSelect = document.getElementById('decadeSelect');
+  const ratingRange = document.getElementById('ratingRange');
+  const ratingValue = document.getElementById('ratingValue');
+  const countBtns = document.querySelectorAll('.count-btn');
+  const spinBtn = document.getElementById('spinBtn');
+  const statusEl = document.getElementById('status');
+  const reelsWrap = document.getElementById('reelsWrap');
+  const resultsEl = document.getElementById('results');
+  const bulbs = document.getElementById('bulbs');
+
+  let reelCount = 1;
+  const CARD_HEIGHT = 250;
+  const FILLER_COUNT = 22; // how many cards spin past before landing
+
+  // build marquee bulbs around the border
+  (function buildBulbs(){
+    const positions = [];
+    const spacing = 26;
+    for(let x=10; x<700; x+=spacing) positions.push({x, y:6, d:(x/spacing)%2});
+    for(let x=10; x<700; x+=spacing) positions.push({x, y:'bottom', d:(x/spacing)%2});
+    positions.forEach((p)=>{
+      const b = document.createElement('span');
+      b.style.left = Math.min(p.x, 700) + 'px';
+      if(p.y === 'bottom'){ b.style.bottom = '6px'; } else { b.style.top = p.y+'px'; }
+      b.style.animationDelay = (p.d * 0.8) + 's';
+      bulbs.appendChild(b);
+    });
+  })();
+
+  ratingRange.addEventListener('input', ()=>{
+    ratingValue.textContent = ratingRange.value === '0' ? 'Any' : ratingRange.value + '+ \u2605';
+  });
+
+  countBtns.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      countBtns.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      reelCount = parseInt(btn.dataset.count, 10);
+    });
+  });
+
+  function setStatus(msg, isError){
+    statusEl.textContent = msg || '';
+    statusEl.classList.toggle('error', !!isError);
+  }
+
+  function setKeyStatus(msg, kind){
+    keyStatus.textContent = msg || '';
+    keyStatus.classList.remove('ok', 'err');
+    if(kind) keyStatus.classList.add(kind);
+  }
+
+  async function validateKey(key){
+    const res = await fetch(`${TMDB_BASE}/configuration?api_key=${encodeURIComponent(key)}`);
+    if(res.status === 401) throw new Error('invalid');
+    if(!res.ok) throw new Error('network');
+    return true;
+  }
+
+  saveKeyBtn.addEventListener('click', async ()=>{
+    const val = apiKeyInput.value.trim();
+    if(!val){
+      setKeyStatus('Paste a key first.', 'err');
+      return;
+    }
+    saveKeyBtn.disabled = true;
+    setKeyStatus('Checking key\u2026');
+    try{
+      await validateKey(val);
+      apiKey = val;
+      setKeyStatus('Key accepted \u2014 you\'re ready to spin.', 'ok');
+      setTimeout(()=>{ keyPanel.classList.add('hidden'); }, 900);
+    }catch(e){
+      if(e.message === 'invalid'){
+        setKeyStatus('That key was rejected by TMDB. Double check it and try again.', 'err');
+      } else {
+        setKeyStatus('Could not reach TMDB to check the key. Check your connection and try again.', 'err');
+      }
+    }
+    saveKeyBtn.disabled = false;
+  });
+
+  function placeholderPoster(title){
+    const safe = (title || '?').slice(0,1).toUpperCase();
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="140"><rect width="96" height="140" fill="#3a2c20"/><text x="48" y="76" font-size="40" fill="#E7B33E" text-anchor="middle" font-family="sans-serif">${safe}</text></svg>`
+    );
+  }
+
+  function normalizeMovie(raw){
+    return {
+      id: raw.id,
+      title: raw.title || raw.original_title || 'Untitled',
+      year: raw.release_date ? raw.release_date.slice(0,4) : '',
+      rating: typeof raw.vote_average === 'number' ? raw.vote_average : null,
+      genres: (raw.genre_ids || []).map(id=>GENRE_NAMES[id]).filter(Boolean),
+      poster: raw.poster_path ? (IMG_BASE + raw.poster_path) : ''
+    };
+  }
+
+  async function fetchDiscoverPage(genre, minRating, decade, page){
+    const params = new URLSearchParams({
+      api_key: apiKey,
+      page: page,
+      sort_by: 'popularity.desc',
+      include_adult: 'false',
+      'vote_count.gte': '40'
+    });
+    if(genre) params.set('with_genres', genre);
+    if(minRating > 0) params.set('vote_average.gte', minRating);
+    if(decade){
+      const dNum = parseInt(decade, 10);
+      if(dNum === 0){
+        params.set('primary_release_date.lte', '1979-12-31');
+      } else {
+        params.set('primary_release_date.gte', `${dNum}-01-01`);
+        params.set('primary_release_date.lte', `${dNum + 9}-12-31`);
+      }
+    }
+    const res = await fetch(`${TMDB_BASE}/discover/movie?${params.toString()}`);
+    if(res.status === 401){ throw new Error('unauthorized'); }
+    if(!res.ok){ throw new Error('network'); }
+    const json = await res.json();
+    return json;
+  }
+
+  async function buildPool(genre, minRating, decade, need){
+    let pool = [];
+    let seen = new Set();
+
+    const first = await fetchDiscoverPage(genre, minRating, decade, 1);
+    const totalPages = Math.min(first.total_pages || 1, 500);
+    if((first.total_results || 0) === 0) return [];
+
+    const pagesToTry = new Set([1]);
+    while(pagesToTry.size < Math.min(totalPages, 5)){
+      pagesToTry.add(1 + Math.floor(Math.random() * totalPages));
+    }
+
+    for(const page of pagesToTry){
+      let data;
+      try{
+        data = page === 1 ? first : await fetchDiscoverPage(genre, minRating, decade, page);
+      }catch(e){ continue; }
+      const movies = data.results || [];
+      for(const raw of movies){
+        if(seen.has(raw.id)) continue;
+        seen.add(raw.id);
+        pool.push(normalizeMovie(raw));
+      }
+      if(pool.length >= need * 8) break;
+    }
+    return pool;
+  }
+
+  function pickRandomUnique(arr, n){
+    const copy = [...arr];
+    const picked = [];
+    while(picked.length < n && copy.length > 0){
+      const idx = Math.floor(Math.random() * copy.length);
+      picked.push(copy.splice(idx, 1)[0]);
+    }
+    return picked;
+  }
+
+  function movieCardHTML(m){
+    const img = m.poster || placeholderPoster(m.title);
+    return `<div class="reel-card">
+      <img src="${img}" alt="" loading="lazy" onerror="this.src='${placeholderPoster(m.title)}'">
+      <div class="rc-title">${escapeHtml(m.title)}</div>
+    </div>`;
+  }
+
+  function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str == null ? '' : str;
+    return d.innerHTML;
+  }
+
+  function buildReelFrame(id){
+    const frame = document.createElement('div');
+    frame.className = 'reel-frame';
+    frame.innerHTML = `
+      <div class="sprockets">${'<span></span>'.repeat(9)}</div>
+      <div class="reel-window">
+        <div class="reel-strip" id="strip-${id}"></div>
+      </div>
+      <div class="sprockets">${'<span></span>'.repeat(9)}</div>
+    `;
+    return frame;
+  }
+
+  function animateReel(stripEl, cards, delay){
+    return new Promise(resolve=>{
+      stripEl.innerHTML = cards.map(movieCardHTML).join('');
+      stripEl.style.transition = 'none';
+      stripEl.style.transform = 'translateY(0)';
+      void stripEl.offsetHeight;
+
+      const finalIndex = cards.length - 1;
+      const targetY = -(finalIndex * CARD_HEIGHT);
+      const duration = 1900 + delay;
+
+      requestAnimationFrame(()=>{
+        stripEl.style.transition = `transform ${duration}ms cubic-bezier(0.12, 0.72, 0.18, 1)`;
+        stripEl.style.transform = `translateY(${targetY}px)`;
+      });
+
+      setTimeout(resolve, duration + 60);
+    });
+  }
+
+  async function spin(){
+    if(!apiKey){
+      setStatus('Enter a TMDB API key above before spinning.', true);
+      keyPanel.classList.remove('hidden');
+      return;
+    }
+
+    const genre = genreSelect.value;
+    const minRating = parseFloat(ratingRange.value);
+    const decade = decadeSelect.value;
+
+    spinBtn.disabled = true;
+    resultsEl.innerHTML = '';
+    setStatus('Fetching the reel\u2026');
+
+    let pool;
+    try{
+      pool = await buildPool(genre, minRating, decade, reelCount);
+    }catch(e){
+      if(e.message === 'unauthorized'){
+        setStatus('Your TMDB key was rejected. Re-enter it above.', true);
+        keyPanel.classList.remove('hidden');
+      } else {
+        setStatus('Could not reach TMDB. Check your connection and try again.', true);
+      }
+      spinBtn.disabled = false;
+      return;
+    }
+
+    if(pool.length < reelCount){
+      setStatus(`Only found ${pool.length} movie${pool.length === 1 ? '' : 's'} matching those filters \u2014 try loosening a filter.`, true);
+      spinBtn.disabled = false;
+      return;
+    }
+
+    setStatus('');
+
+    const finals = pickRandomUnique(pool, reelCount);
+
+    reelsWrap.innerHTML = '';
+    const frames = [];
+    finals.forEach((m, i)=>{
+      const frame = buildReelFrame(i);
+      frame.classList.add('spinning');
+      reelsWrap.appendChild(frame);
+      frames.push(frame);
+    });
+
+    const animations = finals.map((finalMovie, i)=>{
+      const fillerSource = pool.filter(m=>m.id !== finalMovie.id);
+      const filler = pickRandomUnique(fillerSource, Math.min(FILLER_COUNT, fillerSource.length));
+      const cards = [...filler, finalMovie];
+      const stripEl = document.getElementById(`strip-${i}`);
+      const delay = i * 350;
+      return animateReel(stripEl, cards, delay).then(()=>{
+        frames[i].classList.remove('spinning');
+      });
+    });
+
+    await Promise.all(animations);
+    renderResults(finals);
+    spinBtn.disabled = false;
+  }
+
+  function renderResults(movies){
+    resultsEl.innerHTML = movies.map((m, i)=>{
+      const img = m.poster || placeholderPoster(m.title);
+      const genres = (m.genres || []).slice(0, 3);
+      const rating = m.rating != null ? m.rating.toFixed(1) : '\u2014';
+      return `<div class="ticket" style="animation-delay:${i * 0.12}s">
+        <img class="poster" src="${img}" alt="" onerror="this.src='${placeholderPoster(m.title)}'">
+        <div class="ticket-body">
+          <p class="ticket-title">${escapeHtml(m.title)}</p>
+          <p class="ticket-year">${m.year || ''}</p>
+          <div class="genre-chips">
+            ${genres.map(g=>`<span class="genre-chip">${escapeHtml(g)}</span>`).join('') || '<span class="genre-chip">Unrated genre</span>'}
+          </div>
+          <div class="rating-row">
+            <svg viewBox="0 0 20 20"><path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.2 1.3 6-5.4-3-5.4 3 1.3-6-4.6-4.2 6.1-.6z"/></svg>
+            ${rating} / 10
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  spinBtn.addEventListener('click', spin);
+</script>
+</body>
+</html>
