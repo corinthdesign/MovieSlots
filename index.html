@@ -190,6 +190,95 @@
   }
   select:focus{ outline:2px solid var(--marquee); outline-offset:1px; }
 
+  .seed-field{ flex:1 1 100%; position:relative; }
+  .seed-input-wrap{ position:relative; }
+  #seedInput{
+    width:100%;
+    background:var(--ink);
+    color:var(--cream);
+    border:1px solid #3a2c20;
+    border-radius:6px;
+    padding:9px 10px;
+    font-size:0.92rem;
+    font-family:'Libre Franklin', sans-serif;
+  }
+  #seedInput:focus{ outline:2px solid var(--marquee); outline-offset:1px; }
+  #seedInput.hidden{ display:none; }
+  .seed-hint{
+    font-size:0.72rem;
+    color:var(--cream-dim);
+    opacity:0.75;
+    margin-top:4px;
+  }
+  .seed-suggestions{
+    position:absolute;
+    left:0; right:0;
+    top:calc(100% + 4px);
+    background:#1c140f;
+    border:1px solid #3a2c20;
+    border-radius:6px;
+    box-shadow:var(--shadow);
+    z-index:10;
+    max-height:230px;
+    overflow-y:auto;
+    display:none;
+  }
+  .seed-suggestions.open{ display:block; }
+  .seed-suggestion{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 10px;
+    cursor:pointer;
+  }
+  .seed-suggestion:hover, .seed-suggestion.highlighted{
+    background:var(--velvet-dim);
+  }
+  .seed-suggestion img{
+    width:30px; height:44px;
+    object-fit:cover;
+    border-radius:2px;
+    background:#3a2c20;
+    flex-shrink:0;
+  }
+  .seed-suggestion .ss-title{ font-size:0.86rem; color:var(--cream); }
+  .seed-suggestion .ss-year{ font-size:0.74rem; color:var(--cream-dim); }
+  .seed-suggestion.empty{
+    color:var(--cream-dim);
+    font-size:0.82rem;
+    cursor:default;
+  }
+  .seed-suggestion.empty:hover{ background:none; }
+
+  .seed-chip{
+    display:none;
+    align-items:center;
+    gap:10px;
+    background:var(--velvet);
+    color:var(--cream);
+    border-radius:6px;
+    padding:8px 10px;
+  }
+  .seed-chip.active{ display:flex; }
+  .seed-chip img{
+    width:26px; height:38px;
+    object-fit:cover;
+    border-radius:2px;
+    background:#3a2c20;
+    flex-shrink:0;
+  }
+  .seed-chip .sc-text{ flex:1; font-size:0.86rem; }
+  .seed-chip .sc-clear{
+    background:none;
+    border:none;
+    color:var(--cream);
+    font-size:1.1rem;
+    line-height:1;
+    cursor:pointer;
+    padding:4px 6px;
+  }
+  .seed-chip .sc-clear:hover{ color:var(--marquee); }
+
   .cert-field{ flex:1 1 100%; }
   .cert-grid{
     display:flex;
@@ -214,6 +303,7 @@
     border-color:var(--velvet);
     color:var(--cream);
   }
+  .cert-grid.disabled{ opacity:0.4; pointer-events:none; }
 
   .divider{
     height:1px;
@@ -534,6 +624,22 @@
     </div>
 
     <div class="controls-row">
+      <div class="field seed-field">
+        <label for="seedInput">MOVIES LIKE&hellip;</label>
+        <div class="seed-input-wrap">
+          <input type="text" id="seedInput" placeholder="Type a movie title" autocomplete="off">
+          <div class="seed-suggestions" id="seedSuggestions"></div>
+        </div>
+        <div class="seed-chip" id="seedChip">
+          <img id="seedChipImg" src="" alt="">
+          <span class="sc-text" id="seedChipText"></span>
+          <button type="button" class="sc-clear" id="seedClearBtn" aria-label="Clear">&times;</button>
+        </div>
+        <div class="seed-hint" id="seedHint">Pick a title and the reels will pull movies similar to it. Genre and era still narrow the results; audience rating doesn't apply in this mode.</div>
+      </div>
+    </div>
+
+    <div class="controls-row">
       <div class="field cert-field">
         <label>AUDIENCE RATING</label>
         <div class="cert-grid" id="certGrid">
@@ -593,7 +699,21 @@
   const genreSelect = document.getElementById('genreSelect');
   const decadeSelect = document.getElementById('decadeSelect');
   const certChips = document.querySelectorAll('.cert-chip');
+  const certGrid = document.getElementById('certGrid');
   const selectedCerts = new Set();
+
+  const seedInput = document.getElementById('seedInput');
+  const seedSuggestions = document.getElementById('seedSuggestions');
+  const seedChip = document.getElementById('seedChip');
+  const seedChipImg = document.getElementById('seedChipImg');
+  const seedChipText = document.getElementById('seedChipText');
+  const seedClearBtn = document.getElementById('seedClearBtn');
+  let seedMovie = null;
+  let seedDebounceTimer = null;
+  let seedFetchToken = 0;
+  let seedHighlightIndex = -1;
+  let seedResultsCache = [];
+
   const countBtns = document.querySelectorAll('.count-btn');
   const spinBtn = document.getElementById('spinBtn');
   const statusEl = document.getElementById('status');
@@ -631,6 +751,140 @@
         chip.classList.add('active');
       }
     });
+  });
+
+  // ---------- "Movies like..." title search ----------
+
+  function closeSeedSuggestions(){
+    seedSuggestions.classList.remove('open');
+    seedSuggestions.innerHTML = '';
+    seedHighlightIndex = -1;
+    seedResultsCache = [];
+  }
+
+  function renderSeedSuggestions(movies){
+    seedResultsCache = movies;
+    seedHighlightIndex = -1;
+    if(movies.length === 0){
+      seedSuggestions.innerHTML = '<div class="seed-suggestion empty">No matching titles found</div>';
+      seedSuggestions.classList.add('open');
+      return;
+    }
+    seedSuggestions.innerHTML = movies.map((m, i)=>{
+      const img = m.poster_path ? (IMG_BASE + m.poster_path) : placeholderPoster(m.title);
+      const year = m.release_date ? m.release_date.slice(0,4) : '';
+      return `<div class="seed-suggestion" data-index="${i}">
+        <img src="${img}" alt="" onerror="this.src='${placeholderPoster(m.title)}'">
+        <div>
+          <div class="ss-title">${escapeHtml(m.title)}</div>
+          <div class="ss-year">${year}</div>
+        </div>
+      </div>`;
+    }).join('');
+    seedSuggestions.classList.add('open');
+  }
+
+  async function searchMoviesByTitle(query){
+    const params = new URLSearchParams({
+      api_key: apiKey,
+      query: query,
+      include_adult: 'false',
+      page: 1
+    });
+    const res = await fetch(`${TMDB_BASE}/search/movie?${params.toString()}`);
+    if(res.status === 401) throw new Error('unauthorized');
+    if(!res.ok) throw new Error('network');
+    const json = await res.json();
+    return (json.results || []).slice(0, 6);
+  }
+
+  seedInput.addEventListener('input', ()=>{
+    const query = seedInput.value.trim();
+    clearTimeout(seedDebounceTimer);
+    if(query.length < 2){
+      closeSeedSuggestions();
+      return;
+    }
+    if(!apiKey){
+      seedSuggestions.innerHTML = '<div class="seed-suggestion empty">Enter a TMDB API key above first</div>';
+      seedSuggestions.classList.add('open');
+      return;
+    }
+    const myToken = ++seedFetchToken;
+    seedDebounceTimer = setTimeout(async ()=>{
+      try{
+        const results = await searchMoviesByTitle(query);
+        if(myToken !== seedFetchToken) return; // a newer keystroke superseded this request
+        renderSeedSuggestions(results);
+      }catch(e){
+        if(myToken !== seedFetchToken) return;
+        seedSuggestions.innerHTML = '<div class="seed-suggestion empty">Could not reach TMDB</div>';
+        seedSuggestions.classList.add('open');
+      }
+    }, 350);
+  });
+
+  function highlightSeedSuggestion(idx){
+    const items = seedSuggestions.querySelectorAll('.seed-suggestion:not(.empty)');
+    items.forEach(el=>el.classList.remove('highlighted'));
+    if(idx >= 0 && idx < items.length){
+      items[idx].classList.add('highlighted');
+      items[idx].scrollIntoView({ block:'nearest' });
+    }
+  }
+
+  seedInput.addEventListener('keydown', (e)=>{
+    const count = seedResultsCache.length;
+    if(!seedSuggestions.classList.contains('open') || count === 0) return;
+    if(e.key === 'ArrowDown'){
+      e.preventDefault();
+      seedHighlightIndex = (seedHighlightIndex + 1) % count;
+      highlightSeedSuggestion(seedHighlightIndex);
+    } else if(e.key === 'ArrowUp'){
+      e.preventDefault();
+      seedHighlightIndex = (seedHighlightIndex - 1 + count) % count;
+      highlightSeedSuggestion(seedHighlightIndex);
+    } else if(e.key === 'Enter'){
+      e.preventDefault();
+      const idx = seedHighlightIndex >= 0 ? seedHighlightIndex : 0;
+      selectSeedMovie(seedResultsCache[idx]);
+    } else if(e.key === 'Escape'){
+      closeSeedSuggestions();
+    }
+  });
+
+  seedSuggestions.addEventListener('click', (e)=>{
+    const item = e.target.closest('.seed-suggestion');
+    if(!item || item.classList.contains('empty')) return;
+    const idx = parseInt(item.dataset.index, 10);
+    selectSeedMovie(seedResultsCache[idx]);
+  });
+
+  document.addEventListener('click', (e)=>{
+    if(!e.target.closest('.seed-field')) closeSeedSuggestions();
+  });
+
+  function selectSeedMovie(raw){
+    seedMovie = normalizeMovie(raw);
+    seedInput.value = '';
+    seedInput.classList.add('hidden');
+    closeSeedSuggestions();
+    seedChipImg.src = seedMovie.poster || placeholderPoster(seedMovie.title);
+    seedChipText.textContent = seedMovie.year ? `${seedMovie.title} (${seedMovie.year})` : seedMovie.title;
+    seedChip.classList.add('active');
+
+    // Audience-rating filtering isn't available in "movies like" mode.
+    selectedCerts.clear();
+    certChips.forEach(c=>c.classList.remove('active'));
+    certGrid.classList.add('disabled');
+  }
+
+  seedClearBtn.addEventListener('click', ()=>{
+    seedMovie = null;
+    seedInput.classList.remove('hidden');
+    seedChip.classList.remove('active');
+    certGrid.classList.remove('disabled');
+    seedInput.focus();
   });
 
   countBtns.forEach(btn=>{
@@ -696,6 +950,7 @@
       year: raw.release_date ? raw.release_date.slice(0,4) : '',
       rating: typeof raw.vote_average === 'number' ? raw.vote_average : null,
       genres: (raw.genre_ids || []).map(id=>GENRE_NAMES[id]).filter(Boolean),
+      genreIds: raw.genre_ids || [],
       poster: raw.poster_path ? (IMG_BASE + raw.poster_path) : ''
     };
   }
@@ -782,6 +1037,67 @@
     return pool;
   }
 
+  // "Movies like X" mode: pull from TMDB's recommendations for the seed
+  // title (falling back to its similar-titles list), then narrow down
+  // client-side by genre/era since those endpoints don't take query filters.
+  function movieMatchesFilters(m, genre, decade){
+    if(genre && !m.genreIds.includes(Number(genre))) return false;
+    if(decade){
+      const dNum = parseInt(decade, 10);
+      const year = m.year ? parseInt(m.year, 10) : null;
+      if(year == null) return false;
+      if(dNum === 0){
+        if(year >= 1980) return false;
+      } else {
+        if(year < dNum || year >= dNum + 10) return false;
+      }
+    }
+    return true;
+  }
+
+  async function fetchSeedList(endpoint, seedId, page){
+    const params = new URLSearchParams({ api_key: apiKey, page: page });
+    const res = await fetch(`${TMDB_BASE}/movie/${seedId}/${endpoint}?${params.toString()}`);
+    if(res.status === 401) throw new Error('unauthorized');
+    if(!res.ok) throw new Error('network');
+    return res.json();
+  }
+
+  async function buildPoolFromSeed(seedId, genre, decade, need){
+    const pool = [];
+    const seen = new Set([seedId]);
+
+    for(const endpoint of ['recommendations', 'similar']){
+      for(let page = 1; page <= 4; page++){
+        let data;
+        try{
+          data = await fetchSeedList(endpoint, seedId, page);
+        }catch(e){
+          if(e.message === 'unauthorized') throw e;
+          break;
+        }
+        const results = data.results || [];
+        if(results.length === 0) break;
+        for(const raw of results){
+          if(seen.has(raw.id)) continue;
+          seen.add(raw.id);
+          const movie = normalizeMovie(raw);
+          if(movieMatchesFilters(movie, genre, decade)){
+            pool.push(movie);
+          }
+        }
+        if(pool.length >= Math.max(need * 8, 24)) return pool;
+        if(page >= (data.total_pages || 1)) break;
+      }
+      if(pool.length >= need) {
+        // recommendations alone gave us enough; only fall back to
+        // "similar" if we're still short.
+        if(pool.length >= Math.max(need * 4, 12)) break;
+      }
+    }
+    return pool;
+  }
+
   function pickRandomUnique(arr, n){
     const copy = [...arr];
     const picked = [];
@@ -852,11 +1168,13 @@
 
     spinBtn.disabled = true;
     resultsEl.innerHTML = '';
-    setStatus('Fetching the reel\u2026');
+    setStatus(seedMovie ? `Finding movies like "${seedMovie.title}"\u2026` : 'Fetching the reel\u2026');
 
     let pool;
     try{
-      pool = await buildPool(genre, certifications, decade, reelCount);
+      pool = seedMovie
+        ? await buildPoolFromSeed(seedMovie.id, genre, decade, reelCount)
+        : await buildPool(genre, certifications, decade, reelCount);
     }catch(e){
       if(e.message === 'unauthorized'){
         setStatus('Your TMDB key was rejected. Re-enter it above.', true);
@@ -869,7 +1187,10 @@
     }
 
     if(pool.length < reelCount){
-      setStatus(`Only found ${pool.length} movie${pool.length === 1 ? '' : 's'} matching those filters \u2014 try loosening a filter.`, true);
+      const suggestion = seedMovie
+        ? 'try a different title, or loosen the genre/era filters'
+        : 'try loosening a filter';
+      setStatus(`Only found ${pool.length} movie${pool.length === 1 ? '' : 's'} matching those filters \u2014 ${suggestion}.`, true);
       spinBtn.disabled = false;
       return;
     }
